@@ -2,7 +2,7 @@
 <ExtensionManifest Version="5.0" ExtensionBundleId="com.zeus.audimate" ExtensionBundleVersion="1.0.0"
     ExtensionBundleName="AudiMate Bundle" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <ExtensionList>
-        <Extension Id="com.zeus.audimate.panel" Version="1.5.0" />
+        <Extension Id="com.zeus.audimate.panel" Version="1.5.2" />
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>

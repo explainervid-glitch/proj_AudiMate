@@ -12,7 +12,7 @@
     // Single source of truth for the running version. Bump this on each release
     // (and match it in CSXS/manifest.xml). The panel compares it against
     // version.json hosted in the GitHub repo and shows an "Update" pill if newer.
-    var CURRENT_VERSION = "1.5.0";
+    var CURRENT_VERSION = "1.5.2";
     var UPDATE_CHECK_URL = "https://raw.githubusercontent.com/explainervid-glitch/proj_AudiMate/main/version.json";
     var RELEASES_URL = "https://github.com/explainervid-glitch/proj_AudiMate/releases";
 
@@ -111,6 +111,8 @@
         sampleRate: 0,
         duration: 0,
         mode: "straight", // locked to "straight" — Multiple mode hidden for now
+        exportFormat: "wav", // "wav" (MP3 support planned)
+        exportSampleRate: 44100, // Hz; resampled on export if != source rate
         zoom: 1, // pixels per second multiplier base
         regions: [], // {id, start, end, name}
         nextRegionId: 1,
@@ -149,6 +151,10 @@
     var cutPortBtn = document.getElementById("cutPortBtn");
     var multiList = document.getElementById("multiList");
     var statusEl = document.getElementById("status");
+    var settingsBtn = document.getElementById("settingsBtn");
+    var settingsPanel = document.getElementById("settingsPanel");
+    var formatSelect = document.getElementById("formatSelect");
+    var sampleRateSelect = document.getElementById("sampleRateSelect");
     var waveformContainer = document.querySelector(".waveform-container");
 
     var wfCtx = waveformCanvas.getContext("2d");
@@ -1352,10 +1358,63 @@
         }
     }
 
+    // ---------- Region -> encoded ArrayBuffer (async, honors export settings) ----------
+    // Resamples the region to state.exportSampleRate via OfflineAudioContext when it
+    // differs from the source rate, then encodes to WAV. Calls cb(arrayBuffer) on
+    // success, or cb(null, errorMessage) on failure.
+    function encodeRegionToBuffer(region, cb) {
+        var targetRate = state.exportSampleRate;
+        var sourceRate = state.audioBuffer.sampleRate;
+
+        // No resampling needed — encode directly at the source rate.
+        if (!targetRate || targetRate === sourceRate) {
+            try {
+                cb(encodeWavSlice(state.audioBuffer, region.start, region.end));
+            } catch (e) {
+                cb(null, e.message);
+            }
+            return;
+        }
+
+        var OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        if (!OfflineCtx) {
+            // Resampling unavailable in this host — fall back to source rate.
+            try {
+                cb(encodeWavSlice(state.audioBuffer, region.start, region.end));
+            } catch (e) {
+                cb(null, e.message);
+            }
+            return;
+        }
+
+        try {
+            var duration = Math.max(0, region.end - region.start);
+            var frameCount = Math.max(1, Math.ceil(duration * targetRate));
+            var offline = new OfflineCtx(state.audioBuffer.numberOfChannels, frameCount, targetRate);
+            var src = offline.createBufferSource();
+            src.buffer = state.audioBuffer;
+            src.connect(offline.destination);
+            // Play only the region; the offline context resamples to targetRate.
+            src.start(0, region.start, duration);
+
+            offline.oncomplete = function (e) {
+                try {
+                    // Rendered buffer is already the region, at targetRate — encode whole.
+                    cb(encodeWavSlice(e.renderedBuffer, 0, e.renderedBuffer.duration));
+                } catch (err) {
+                    cb(null, err.message);
+                }
+            };
+            offline.startRendering();
+        } catch (e) {
+            cb(null, e.message);
+        }
+    }
+
     // ---------- Build output file path — aborts on name collision instead of auto-suffixing ----------
     function getOutputPath(name) {
         var safeName = sanitizeFileName(name || "cut");
-        var fileName = safeName + ".wav";
+        var fileName = safeName + "." + state.exportFormat;
         var fullPath = path.join(state.fileDir, fileName);
         return { path: fullPath, name: fileName, exists: fileApi.exists(fullPath) };
     }
@@ -1382,19 +1441,35 @@
             return;
         }
 
-        try {
-            var outputPaths = [];
-            state.regions.forEach(function (region) {
-                var wavBuffer = encodeWavSlice(state.audioBuffer, region.start, region.end);
-                var outPath = getOutputPath(region.name).path;
-                fileApi.writeFileFromArrayBuffer(outPath, wavBuffer);
-                outputPaths.push(outPath);
-            });
+        var regions = state.regions.slice();
+        var outputPaths = [];
+        var idx = 0;
 
-            setStatus("Saved " + outputPaths.length + " file(s) to " + state.fileDir, "success");
-        } catch (err) {
-            setStatus("Cut failed: " + err.message, "error");
+        setStatus("Encoding " + regions.length + " file(s)...");
+
+        function saveNext() {
+            if (idx >= regions.length) {
+                setStatus("Saved " + outputPaths.length + " file(s) to " + state.fileDir, "success");
+                return;
+            }
+            var region = regions[idx++];
+            encodeRegionToBuffer(region, function (buffer, errMsg) {
+                if (!buffer) {
+                    setStatus("Cut failed: " + errMsg, "error");
+                    return;
+                }
+                try {
+                    var outPath = getOutputPath(region.name).path;
+                    fileApi.writeFileFromArrayBuffer(outPath, buffer);
+                    outputPaths.push(outPath);
+                    saveNext();
+                } catch (err) {
+                    setStatus("Cut failed: " + err.message, "error");
+                }
+            });
         }
+
+        saveNext();
     });
 
     // ---------- CutPort button ----------
@@ -1409,27 +1484,34 @@
             return;
         }
 
-        try {
-            var wavBuffer = encodeWavSlice(state.audioBuffer, region.start, region.end);
-            var outPath = getOutputPath(region.name).path;
-            fileApi.writeFileFromArrayBuffer(outPath, wavBuffer);
+        setStatus("Encoding...");
 
-            setStatus("Saved " + outPath + ", importing to Animate...");
+        encodeRegionToBuffer(region, function (buffer, errMsg) {
+            if (!buffer) {
+                setStatus("CutPort failed: " + errMsg, "error");
+                return;
+            }
+            try {
+                var outPath = getOutputPath(region.name).path;
+                fileApi.writeFileFromArrayBuffer(outPath, buffer);
 
-            var escapedPath = outPath.replace(/\\/g, "\\\\");
-            var libName = path.basename(outPath);
-            var jsxCall = "importAudioToLayer('" + escapedPath + "', '" + libName.replace(/'/g, "\\'") + "')";
+                setStatus("Saved " + outPath + ", importing to Animate...");
 
-            csInterface.evalScript(jsxCall, function (result) {
-                if (result && result.indexOf("ERROR") === 0) {
-                    setStatus("Saved file, but import failed: " + result, "error");
-                } else {
-                    setStatus("CutPort done: " + outPath + " -> " + result, "success");
-                }
-            });
-        } catch (err) {
-            setStatus("CutPort failed: " + err.message, "error");
-        }
+                var escapedPath = outPath.replace(/\\/g, "\\\\");
+                var libName = path.basename(outPath);
+                var jsxCall = "importAudioToLayer('" + escapedPath + "', '" + libName.replace(/'/g, "\\'") + "')";
+
+                csInterface.evalScript(jsxCall, function (result) {
+                    if (result && result.indexOf("ERROR") === 0) {
+                        setStatus("Saved file, but import failed: " + result, "error");
+                    } else {
+                        setStatus("CutPort done: " + outPath + " -> " + result, "success");
+                    }
+                });
+            } catch (err) {
+                setStatus("CutPort failed: " + err.message, "error");
+            }
+        });
     });
 
     // ---------- Session persistence (localStorage) ----------
@@ -1519,6 +1601,78 @@
         loadAudioFile(session.filePath);
     }
 
+    // ---------- Export settings (persisted separately from session) ----------
+    var SETTINGS_KEY = "audimate_settings_v1";
+
+    function loadSettings() {
+        try {
+            var raw = localStorage.getItem(SETTINGS_KEY);
+            if (raw) {
+                var s = JSON.parse(raw);
+                if (s.format === "wav" || s.format === "mp3") state.exportFormat = s.format;
+                var sr = parseInt(s.sampleRate, 10);
+                if (!isNaN(sr)) state.exportSampleRate = sr;
+            }
+        } catch (e) { /* localStorage unavailable — use defaults */ }
+
+        // MP3 not implemented yet — force WAV so exports never break.
+        if (state.exportFormat !== "wav") state.exportFormat = "wav";
+
+        // Reflect settings into the UI controls.
+        if (formatSelect) formatSelect.value = state.exportFormat;
+        if (sampleRateSelect) sampleRateSelect.value = String(state.exportSampleRate);
+    }
+
+    function saveSettings() {
+        try {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+                format: state.exportFormat,
+                sampleRate: state.exportSampleRate
+            }));
+        } catch (e) { /* ignore */ }
+    }
+
+    if (formatSelect) {
+        formatSelect.addEventListener("change", function () {
+            state.exportFormat = formatSelect.value === "mp3" ? "mp3" : "wav";
+            saveSettings();
+        });
+    }
+
+    if (sampleRateSelect) {
+        sampleRateSelect.addEventListener("change", function () {
+            var sr = parseInt(sampleRateSelect.value, 10);
+            if (!isNaN(sr)) {
+                state.exportSampleRate = sr;
+                saveSettings();
+            }
+        });
+    }
+
+    // Toggle the settings popover; close on outside click / Escape.
+    function toggleSettings(show) {
+        if (!settingsPanel) return;
+        var visible = show !== undefined ? show : settingsPanel.style.display === "none";
+        settingsPanel.style.display = visible ? "block" : "none";
+    }
+
+    if (settingsBtn) {
+        settingsBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            toggleSettings();
+        });
+    }
+
+    document.addEventListener("click", function (e) {
+        if (!settingsPanel || settingsPanel.style.display === "none") return;
+        if (settingsPanel.contains(e.target) || (settingsBtn && settingsBtn.contains(e.target))) return;
+        toggleSettings(false);
+    });
+
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") toggleSettings(false);
+    });
+
     // ---------- Update check (notify + link) ----------
     // Parse "1.5.0" / "v1.5.0" into [1,5,0].
     function parseVersion(v) {
@@ -1587,6 +1741,7 @@
     function init() {
         // Keep the version badge in sync with CURRENT_VERSION (single source).
         if (versionLabelEl) versionLabelEl.textContent = "v" + CURRENT_VERSION;
+        loadSettings();
         checkForUpdate();
 
         resizeCanvases();
