@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest Version="5.0" ExtensionBundleId="com.zeus.audimate" ExtensionBundleVersion="1.0.0"
+    ExtensionBundleName="AudiMate Bundle" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ExtensionList>
+        <Extension Id="com.zeus.audimate.panel" Version="1.5.0" />
+    </ExtensionList>
+    <ExecutionEnvironment>
+        <HostList>
+            <!-- FLPR = Adobe Animate | [21.0,99.9] = Animate 2021 ke atas -->
+            <Host Name="FLPR" Version="[21.0,99.9]" />
+        </HostList>
+        <LocaleList>
+            <Locale Code="All" />
+        </LocaleList>
+        <RequiredRuntimeList>
+            <!-- CSXS 8+ covers Animate 2021 and above -->
+            <RequiredRuntime Name="CSXS" Version="8.0" />
+        </RequiredRuntimeList>
+    </ExecutionEnvironment>
+    <DispatchInfoList>
+        <Extension Id="com.zeus.audimate.panel">
+            <DispatchInfo>
+                <Resources>
+                    <MainPath>./AudiMate.html</MainPath>
+                    <ScriptPath>./jsx/AudiMate.jsx</ScriptPath>
+                </Resources>
+                <Lifecycle>
+                    <AutoVisible>true</AutoVisible>
+                </Lifecycle>
+                <UI>
+                    <Type>Panel</Type>
+                    <Menu>AudiMate</Menu>
+                    <Geometry>
+                        <Size>
+                            <Height>370</Height>
+                            <Width>1000</Width>
+                        </Size>
+                    </Geometry>
+                </UI>
+            </DispatchInfo>
+        </Extension>
+    </DispatchInfoList>
+</ExtensionManifest>

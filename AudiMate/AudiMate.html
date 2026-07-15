@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AudiMate</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<!-- Lucide icon sprite (bundled, no network needed) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="lc-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3v12" />
+  <path d="m17 8-5-5-5 5" />
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+  </symbol>
+  <symbol id="lc-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+  </symbol>
+  <symbol id="lc-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="14" y="3" width="5" height="18" rx="1" />
+  <rect x="5" y="3" width="5" height="18" rx="1" />
+  </symbol>
+  <symbol id="lc-square" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+  </symbol>
+  <symbol id="lc-repeat-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m17 2 4 4-4 4" />
+  <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+  <path d="m7 22-4-4 4-4" />
+  <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+  <path d="M11 10h1v4" />
+  </symbol>
+  <symbol id="lc-locate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="2" x2="5" y1="12" y2="12" />
+  <line x1="19" x2="22" y1="12" y2="12" />
+  <line x1="12" x2="12" y1="2" y2="5" />
+  <line x1="12" x2="12" y1="19" y2="22" />
+  <circle cx="12" cy="12" r="7" />
+  </symbol>
+  <symbol id="lc-maximize-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+  </symbol>
+  <symbol id="lc-scissors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="6" cy="6" r="3" />
+  <path d="M8.12 8.12 12 12" />
+  <path d="M20 4 8.12 15.88" />
+  <circle cx="6" cy="18" r="3" />
+  <path d="M14.8 14.8 20 20" />
+  </symbol>
+  <symbol id="lc-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+  <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" />
+  <path d="M7 3v4a1 1 0 0 0 1 1h7" />
+  </symbol>
+  <symbol id="lc-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m10 16 4-4-4-4"/><path d="M3 12h11"/><path d="M3 8V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3"/>
+  </symbol>
+</svg>
+
+<div class="panel">
+
+    <!-- Header -->
+    <!-- <div class="header">
+        <h1>AudiMate</h1>
+        <span class="version">v1.0.0</span>
+    </div> -->
+
+    <!-- Import button / drag & drop / file info -->
+    <div class="row top-row">
+        <div id="dropZone" class="drop-zone">
+            <button id="importBtn" class="action-btn icon-btn" title="Import audio">
+                <svg><use href="#lc-upload"/></svg>Import
+            </button>
+            <span id="dropZoneText">Drop audio here or click Import</span>
+        </div>
+
+        <div class="version">
+            <div class="field version-field">
+                <span class="version">v1.5.0</span>
+            </div>
+        </div>
+
+        <div class="field mode-toggle-field">
+            <label class="field-label">Cut Mode</label>
+            <div class="toggle-group">
+                <button id="modeStraightBtn" class="toggle-btn active" data-mode="straight">
+                    Mono
+                </button>
+                <button id="modeMultipleBtn" class="toggle-btn" data-mode="multiple">
+                    Multiple
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Waveform + Ruler (horizontally scrollable when zoomed) -->
+    <div class="timeline-scroll">
+        <div class="waveform-container">
+            <canvas id="waveformCanvas"></canvas>
+            <div id="regionsOverlay" class="regions-overlay"></div>
+            <div id="playhead" class="playhead"></div>
+        </div>
+        <div class="ruler-container">
+            <canvas id="rulerCanvas"></canvas>
+        </div>
+    </div>
+
+    <!-- Transport + zoom -->
+    <div class="row controls-row">
+
+        <button id="playBtn" class="ctrl-btn icon-btn" disabled title="Play">
+            <svg><use href="#lc-play"/></svg>
+        </button>
+        <button id="stopBtn" class="ctrl-btn icon-btn" disabled title="Stop">
+            <svg><use href="#lc-square"/></svg>
+        </button>
+        <button id="playRegionBtn" class="ctrl-btn icon-btn active" disabled title="Play Inside Region">
+            <svg><use href="#lc-repeat-1"/></svg>Region
+        </button>
+
+        <div class="zoom-controls">
+            <span id="zoomLabel" class="zoom-label">100%</span>
+            <button id="zoomToPlayheadBtn" class="ctrl-btn small icon-btn" title="Zoom to playhead">
+                <svg><use href="#lc-locate"/></svg>
+            </button>
+            <button id="zoomResetBtn" class="ctrl-btn small icon-btn" title="Reset zoom">
+                <svg><use href="#lc-maximize-2"/></svg>
+            </button>
+        </div>
+
+        <div class="field2 naming-field">
+            <label class="field-label" for="namingInput">Rename</label>
+            <input type="text" id="namingInput" placeholder="e.g sound_1" value="">
+        </div>
+
+        <div class="regions-info" id="regionsInfo"></div>
+
+        <div class="time-display">
+            <span id="currentTimeLabel">0:00.000</span> / <span id="durationLabel">0:00.000</span>
+        </div>
+    </div>
+    <div class="row btn2-row">
+        <label class="label" for="namingInput">Ctrl+Scroll: Zoom | Shift + Scroll: Navigate</label>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="row btn-row">
+        <button id="addRegionBtn" class="action-btn icon-btn" disabled>
+            <svg><use href="#lc-scissors"/></svg>Add Cut Region
+        </button>
+        <button id="cutBtn" class="action-btn icon-btn" disabled>
+            <svg><use href="#lc-save"/></svg>Save Audio Only
+        </button>
+        <button id="cutPortBtn" class="action-btn icon-btn primary" disabled>
+            <svg><use href="#lc-send"/></svg>Save & Add To Layer
+        </button>
+    </div>
+
+    <!-- Multiple cut list (only visible in Multiple mode) -->
+    <div id="multiList" class="multi-list"></div>
+
+    <!-- Status -->
+    <div id="status" class="status"></div>
+
+</div>
+
+<!-- CEP Library -->
+<script src="js/CSInterface.js"></script>
+<!-- Panel Logic -->
+<script src="js/main.js"></script>
+
+</body>
+</html>
