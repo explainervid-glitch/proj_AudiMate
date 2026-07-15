@@ -8,6 +8,14 @@
 
     var csInterface = new CSInterface();
 
+    // ---------- Update check ----------
+    // Single source of truth for the running version. Bump this on each release
+    // (and match it in CSXS/manifest.xml). The panel compares it against
+    // version.json hosted in the GitHub repo and shows an "Update" pill if newer.
+    var CURRENT_VERSION = "1.5.0";
+    var UPDATE_CHECK_URL = "https://raw.githubusercontent.com/explainervid-glitch/proj_AudiMate/main/version.json";
+    var RELEASES_URL = "https://github.com/explainervid-glitch/proj_AudiMate/releases";
+
     // This CEP host does not expose Node's require() (require === "undefined"),
     // but window.cep.fs IS available - use that for all file I/O instead.
     var cepFs = (window.cep && window.cep.fs) ? window.cep.fs : null;
@@ -1511,8 +1519,76 @@
         loadAudioFile(session.filePath);
     }
 
+    // ---------- Update check (notify + link) ----------
+    // Parse "1.5.0" / "v1.5.0" into [1,5,0].
+    function parseVersion(v) {
+        return String(v).replace(/^v/i, "").split(".").map(function (n) {
+            var num = parseInt(n, 10);
+            return isNaN(num) ? 0 : num;
+        });
+    }
+
+    // True if `remote` is a higher version than `current`.
+    function isNewerVersion(remote, current) {
+        var a = parseVersion(remote);
+        var b = parseVersion(current);
+        var len = Math.max(a.length, b.length);
+        for (var i = 0; i < len; i++) {
+            var x = a[i] || 0;
+            var y = b[i] || 0;
+            if (x > y) return true;
+            if (x < y) return false;
+        }
+        return false; // equal
+    }
+
+    var updateNoticeEl = document.getElementById("updateNotice");
+    var versionLabelEl = document.getElementById("versionLabel");
+
+    function showUpdateNotice(info) {
+        if (!updateNoticeEl) return;
+        var v = String(info.version).replace(/^v/i, "");
+        updateNoticeEl.textContent = "Update v" + v + " →";
+        updateNoticeEl.title = info.notes ? ("What's new: " + info.notes) : "Download the latest version";
+        updateNoticeEl.setAttribute("data-url", info.url || RELEASES_URL);
+        updateNoticeEl.style.display = "inline-block";
+    }
+
+    if (updateNoticeEl) {
+        updateNoticeEl.addEventListener("click", function (e) {
+            e.preventDefault();
+            var url = updateNoticeEl.getAttribute("data-url") || RELEASES_URL;
+            try {
+                csInterface.openURLInDefaultBrowser(url);
+            } catch (err) {
+                setStatus("Could not open browser: " + err.message, "error");
+            }
+        });
+    }
+
+    // Fetch version.json from GitHub and reveal the pill if a newer version exists.
+    // Never throws into the panel — any network/parse failure is ignored silently.
+    function checkForUpdate() {
+        if (typeof fetch !== "function") return;
+        try {
+            fetch(UPDATE_CHECK_URL, { cache: "no-store" })
+                .then(function (res) { return res && res.ok ? res.json() : null; })
+                .then(function (data) {
+                    if (!data || !data.version) return;
+                    if (isNewerVersion(data.version, CURRENT_VERSION)) {
+                        showUpdateNotice(data);
+                    }
+                })
+                .catch(function () { /* offline or blocked — ignore */ });
+        } catch (e) { /* fetch unavailable — ignore */ }
+    }
+
     // ---------- Init ----------
     function init() {
+        // Keep the version badge in sync with CURRENT_VERSION (single source).
+        if (versionLabelEl) versionLabelEl.textContent = "v" + CURRENT_VERSION;
+        checkForUpdate();
+
         resizeCanvases();
         drawWaveform();
         drawRuler();

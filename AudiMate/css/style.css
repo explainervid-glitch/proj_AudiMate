@@ -147,6 +147,34 @@ input, textarea, [contenteditable], .status {
     font-size: 11px;
 }
 
+.version-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* "Update available" pill — hidden until checkForUpdate() finds a newer version */
+.update-notice {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--accent-bg-soft);
+    border: 1px solid var(--accent);
+    color: var(--accent-hover);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.update-notice:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
 /* Rows */
 .row {
     display: flex;
