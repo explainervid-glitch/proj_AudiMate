@@ -12,7 +12,7 @@
     // Single source of truth for the running version. Bump this on each release
     // (and match it in CSXS/manifest.xml). The panel compares it against
     // version.json hosted in the GitHub repo and shows an "Update" pill if newer.
-    var CURRENT_VERSION = "1.5.2";
+    var CURRENT_VERSION = "1.5.3";
     var UPDATE_CHECK_URL = "https://raw.githubusercontent.com/explainervid-glitch/proj_AudiMate/main/version.json";
     var RELEASES_URL = "https://github.com/explainervid-glitch/proj_AudiMate/releases";
 
@@ -126,6 +126,11 @@
     };
 
     var sourceNode = null;
+
+    // Guards against overlapping exports (e.g. a fast double-click on a Save
+    // button). Export is async now, so without this a second click could write
+    // duplicate files / import the sound onto the layer twice.
+    var isExporting = false;
 
     // ---------- DOM refs ----------
     var dropZone = document.getElementById("dropZone");
@@ -338,6 +343,17 @@
     }
 
     // ---------- Shared finisher once an AudioBuffer is decoded ----------
+    // NOTE (known Web Audio behavior): decodeAudioData always resamples the file
+    // to the AudioContext's sample rate (typically the system's 44100 or 48000 Hz),
+    // so `decoded.sampleRate` is the CONTEXT rate, NOT the file's original rate.
+    // Consequences:
+    //   * A 22050 Hz source is decoded to 44100/48000 — exporting at 44100 does
+    //     not recover the original 22050; it just re-emits the upsampled audio.
+    //   * The "no resample needed" shortcut in encodeRegionToBuffer compares the
+    //     export rate against this context rate, not the file's true rate.
+    // Recovering the true source rate would require parsing each container's
+    // header ourselves (wav/mp3/ogg/m4a/aac) — out of scope. Documented so this
+    // isn't later mistaken for a bug.
     function onAudioDecoded(decoded, filePath, fallbackName) {
         state.audioBuffer = decoded;
         state.sampleRate = decoded.sampleRate;
@@ -1362,28 +1378,34 @@
     // Resamples the region to state.exportSampleRate via OfflineAudioContext when it
     // differs from the source rate, then encodes to WAV. Calls cb(arrayBuffer) on
     // success, or cb(null, errorMessage) on failure.
+    // Callback signature: cb(arrayBuffer, errorMessage, warningMessage)
+    //   - success:            cb(buffer, null, null)
+    //   - success w/ fallback: cb(buffer, null, "saved at N Hz instead")
+    //   - hard failure:       cb(null, "message")
     function encodeRegionToBuffer(region, cb) {
         var targetRate = state.exportSampleRate;
         var sourceRate = state.audioBuffer.sampleRate;
 
-        // No resampling needed — encode directly at the source rate.
-        if (!targetRate || targetRate === sourceRate) {
+        // Encode the region at the source rate (no resampling). `warnMsg` is
+        // passed through so callers can tell the user a fallback happened.
+        function encodeAtSource(warnMsg) {
             try {
-                cb(encodeWavSlice(state.audioBuffer, region.start, region.end));
+                cb(encodeWavSlice(state.audioBuffer, region.start, region.end), null, warnMsg || null);
             } catch (e) {
                 cb(null, e.message);
             }
+        }
+
+        // No resampling needed — encode directly at the source rate.
+        if (!targetRate || targetRate === sourceRate) {
+            encodeAtSource(null);
             return;
         }
 
         var OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
         if (!OfflineCtx) {
             // Resampling unavailable in this host — fall back to source rate.
-            try {
-                cb(encodeWavSlice(state.audioBuffer, region.start, region.end));
-            } catch (e) {
-                cb(null, e.message);
-            }
+            encodeAtSource("Resampling not supported here — saved at " + sourceRate + " Hz.");
             return;
         }
 
@@ -1400,14 +1422,17 @@
             offline.oncomplete = function (e) {
                 try {
                     // Rendered buffer is already the region, at targetRate — encode whole.
-                    cb(encodeWavSlice(e.renderedBuffer, 0, e.renderedBuffer.duration));
+                    cb(encodeWavSlice(e.renderedBuffer, 0, e.renderedBuffer.duration), null, null);
                 } catch (err) {
-                    cb(null, err.message);
+                    // Encoding the resampled buffer failed — fall back to source rate.
+                    encodeAtSource("Resample failed — saved at " + sourceRate + " Hz.");
                 }
             };
             offline.startRendering();
         } catch (e) {
-            cb(null, e.message);
+            // Constructing/starting the offline context failed (e.g. an
+            // unsupported sample rate on this host) — fall back to source rate.
+            encodeAtSource("Resampling failed — saved at " + sourceRate + " Hz.");
         }
     }
 
@@ -1433,6 +1458,7 @@
 
     // ---------- Cut button ----------
     cutBtn.addEventListener("click", function () {
+        if (isExporting) return; // ignore extra clicks while a save is in progress
         if (!state.audioBuffer || state.regions.length === 0) return;
 
         var collision = findNameCollision(state.regions);
@@ -1444,20 +1470,26 @@
         var regions = state.regions.slice();
         var outputPaths = [];
         var idx = 0;
+        var warning = null;
 
+        isExporting = true;
         setStatus("Encoding " + regions.length + " file(s)...");
 
         function saveNext() {
             if (idx >= regions.length) {
-                setStatus("Saved " + outputPaths.length + " file(s) to " + state.fileDir, "success");
+                var msg = "Saved " + outputPaths.length + " file(s) to " + state.fileDir;
+                setStatus(warning ? (warning + " " + msg) : msg, warning ? "" : "success");
+                isExporting = false;
                 return;
             }
             var region = regions[idx++];
-            encodeRegionToBuffer(region, function (buffer, errMsg) {
+            encodeRegionToBuffer(region, function (buffer, errMsg, warnMsg) {
                 if (!buffer) {
                     setStatus("Cut failed: " + errMsg, "error");
+                    isExporting = false;
                     return;
                 }
+                if (warnMsg) warning = warnMsg;
                 try {
                     var outPath = getOutputPath(region.name).path;
                     fileApi.writeFileFromArrayBuffer(outPath, buffer);
@@ -1465,6 +1497,7 @@
                     saveNext();
                 } catch (err) {
                     setStatus("Cut failed: " + err.message, "error");
+                    isExporting = false;
                 }
             });
         }
@@ -1474,6 +1507,7 @@
 
     // ---------- CutPort button ----------
     cutPortBtn.addEventListener("click", function () {
+        if (isExporting) return; // ignore extra clicks while a save is in progress
         if (!state.audioBuffer || state.mode !== "straight" || state.regions.length !== 1) return;
 
         var region = state.regions[0];
@@ -1484,20 +1518,25 @@
             return;
         }
 
+        isExporting = true;
         setStatus("Encoding...");
 
-        encodeRegionToBuffer(region, function (buffer, errMsg) {
+        encodeRegionToBuffer(region, function (buffer, errMsg, warnMsg) {
             if (!buffer) {
                 setStatus("CutPort failed: " + errMsg, "error");
+                isExporting = false;
                 return;
             }
             try {
                 var outPath = getOutputPath(region.name).path;
                 fileApi.writeFileFromArrayBuffer(outPath, buffer);
 
-                setStatus("Saved " + outPath + ", importing to Animate...");
+                var prefix = warnMsg ? (warnMsg + " ") : "";
+                setStatus(prefix + "Saved " + outPath + ", importing to Animate...");
 
-                var escapedPath = outPath.replace(/\\/g, "\\\\");
+                // Escape backslashes AND single quotes so paths with an
+                // apostrophe (e.g. C:\Users\O'Brien\...) don't break the call.
+                var escapedPath = outPath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
                 var libName = path.basename(outPath);
                 var jsxCall = "importAudioToLayer('" + escapedPath + "', '" + libName.replace(/'/g, "\\'") + "')";
 
@@ -1505,11 +1544,13 @@
                     if (result && result.indexOf("ERROR") === 0) {
                         setStatus("Saved file, but import failed: " + result, "error");
                     } else {
-                        setStatus("CutPort done: " + outPath + " -> " + result, "success");
+                        setStatus(prefix + "CutPort done: " + outPath + " -> " + result, "success");
                     }
+                    isExporting = false;
                 });
             } catch (err) {
                 setStatus("CutPort failed: " + err.message, "error");
+                isExporting = false;
             }
         });
     });
@@ -1720,21 +1761,57 @@
         });
     }
 
-    // Fetch version.json from GitHub and reveal the pill if a newer version exists.
-    // Never throws into the panel — any network/parse failure is ignored silently.
+    // Small logger so a failed update check is diagnosable via the remote
+    // debugger (localhost:8088) instead of failing completely silently.
+    // Never surfaces to the panel UI — a failed check must not disrupt work.
+    function updateLog(msg) {
+        if (window.console && console.warn) console.warn("AudiMate update check: " + msg);
+    }
+
+    // Fetch version.json from GitHub and reveal the pill if a newer version
+    // exists. Uses XMLHttpRequest (more reliable than fetch in Animate's older
+    // CEF build) and a cache-busting query param to sidestep GitHub's CDN cache.
     function checkForUpdate() {
-        if (typeof fetch !== "function") return;
+        var xhr;
         try {
-            fetch(UPDATE_CHECK_URL, { cache: "no-store" })
-                .then(function (res) { return res && res.ok ? res.json() : null; })
-                .then(function (data) {
-                    if (!data || !data.version) return;
-                    if (isNewerVersion(data.version, CURRENT_VERSION)) {
+            xhr = new XMLHttpRequest();
+        } catch (e) {
+            updateLog("XMLHttpRequest unavailable — " + e.message);
+            return;
+        }
+
+        try {
+            xhr.open("GET", UPDATE_CHECK_URL + "?t=" + Date.now(), true);
+            xhr.timeout = 8000;
+
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) return;
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    var data;
+                    try {
+                        data = JSON.parse(xhr.responseText);
+                    } catch (e) {
+                        updateLog("invalid version.json — " + e.message);
+                        return;
+                    }
+                    if (data && data.version && isNewerVersion(data.version, CURRENT_VERSION)) {
                         showUpdateNotice(data);
                     }
-                })
-                .catch(function () { /* offline or blocked — ignore */ });
-        } catch (e) { /* fetch unavailable — ignore */ }
+                } else {
+                    updateLog("HTTP " + xhr.status);
+                }
+            };
+            xhr.onerror = function () {
+                updateLog("network or CORS error (request blocked?)");
+            };
+            xhr.ontimeout = function () {
+                updateLog("timed out");
+            };
+
+            xhr.send();
+        } catch (e) {
+            updateLog(e.message);
+        }
     }
 
     // ---------- Init ----------

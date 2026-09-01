@@ -1,5 +1,5 @@
 {
-  "version": "1.5.2",
+  "version": "1.5.3",
   "url": "https://github.com/explainervid-glitch/proj_AudiMate/releases",
-  "notes": "Added export settings (WAV format + sample rate) and update notifications."
+  "notes": "Bug fixes: prevent duplicate exports on double-click, graceful resample fallback, and apostrophe-safe file paths."
 }
