@@ -4,6 +4,15 @@ A panel extension (CEP) for **Adobe Animate** that lets you trim audio and drop 
 
 > Load a recording → select the part you want on the waveform → save it as a WAV, or save **and** place it on the active layer at the current frame in one click.
 
+## Demo
+
+[▶ Watch the AudiMate demo](AudiMate%20Demo.mp4)
+
+<!-- For an inline video player on GitHub: edit this file on github.com, drag
+     "AudiMate Demo.mp4" into the editor, and replace the link above with the
+     generated https://github.com/user-attachments/... URL. Only those URLs
+     render as a player; a repo-relative path only downloads. -->
+
 ---
 
 ## Features
@@ -92,11 +101,33 @@ git commit -m "Release vX.Y.Z"
 git push origin main
 ```
 
-Finally, cut a **GitHub Release** so users have something to download (the `version.json` "url" points here):
+Then cut a **GitHub Release** so users have something to download (the `version.json` "url" points at the Releases page). **Do this only after the version bump is committed and pushed** — a release tags the latest pushed commit.
+
+#### Step A — Build the download zip
+
+The release asset must contain `install.bat` + `operator.ps1` + the `AudiMate/` folder, so users can extract and run the installer. From the repo root in **PowerShell** (replace the version):
+
+```powershell
+Compress-Archive -Path install.bat, operator.ps1, AudiMate -DestinationPath Builds\AudiMate-vX.Y.Z.zip -Force
+```
+
+The `Builds/` folder is gitignored, so the zip stays out of the repo — it lives only on the release.
+
+#### Step B — Create the release
+
+**Option 1 — GitHub website:**
+
+1. Repo → **Releases** (right sidebar) → **Draft a new release**.
+2. **Choose a tag** → type `vX.Y.Z` → **"Create new tag on publish"**.
+3. **Release title:** `vX.Y.Z`.
+4. **Description:** a short changelog (match the `notes` in `version.json`).
+5. Drag `Builds\AudiMate-vX.Y.Z.zip` into the **"Attach binaries"** box; wait for the upload to finish.
+6. Click **Publish release**.
+
+**Option 2 — `gh` CLI (one command, after Step A):**
 
 ```bash
-# optional: zip the plugin folder for the release asset
-gh release create vX.Y.Z --title "vX.Y.Z" --notes "What changed"
+gh release create vX.Y.Z "Builds/AudiMate-vX.Y.Z.zip" --title "vX.Y.Z" --notes "What changed"
 ```
 
 Once `version.json` on `main` reports the new version, every installed panel shows the update pill on next open.
