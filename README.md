@@ -6,7 +6,11 @@ A panel extension (CEP) for **Adobe Animate** that lets you trim audio and drop 
 
 ## Demo
 
-https://github.com/user-attachments/assets/a1b2c3d4-5678-90ab-cdef-1234567890ab
+
+
+https://github.com/user-attachments/assets/9a87ab22-6706-4017-b55e-a0ac532e85bd
+
+
 
 <!-- Inline player: edit this file on github.com, drag "AudiMate Demo.mp4" into
      the editor, and replace the bare URL above with the generated
