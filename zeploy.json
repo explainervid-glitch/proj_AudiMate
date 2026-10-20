@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "audimate",
+  "name": "AudiMate",
+  "version": "1.6.0",
+  "description": "Trim audio and drop it onto the Adobe Animate timeline: a CEP panel for voiceover and lip-sync work.",
+  "components": [
+    { "type": "cep", "source": "AudiMate", "installName": "AudiMate" }
+  ]
+}

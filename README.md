@@ -30,6 +30,7 @@ https://github.com/user-attachments/assets/9a87ab22-6706-4017-b55e-a0ac532e85bd
 - **Save & Add To Layer** — writes the WAV *and* imports it into the Library, then places it on the active layer at the current playhead frame (same as a manual drag from the Library panel).
 - **Session memory** — reopens with your last file, selection, and zoom restored.
 - **Update check** — tells you when a newer version is available.
+- **Usage reporting for zeploy** — counts imports and saves for the team's zeploy dashboard (see [Usage reporting](#usage-reporting)).
 
 > Output is always a **16-bit PCM WAV**, even if the source was an MP3.
 
@@ -81,6 +82,35 @@ The panel installs to whichever exists:
 
 ---
 
+## Usage reporting
+
+AudiMate counts how often it is used, for the team's zeploy dashboard: each
+file loaded with **Import** or drag-and-drop ("import"; reopening the last
+session does not count), each **Save Audio Only** ("save") and each **Save &
+Add To Layer** ("add to layer"), with how long the save took, plus an error
+when one of those fails. Every use appends one line to
+`%LOCALAPPDATA%\zeploy\usage\com.zeus.audimate.jsonl`; the zeploy agent sends
+daily totals to the admin app and deletes the file.
+
+- Only the plugin id, version, event name and duration are written: no file
+  names, paths or user names.
+- Nothing is written on a PC without zeploy (no `%LOCALAPPDATA%\zeploy`
+  folder), and AudiMate sends nothing over the network for this (the update
+  check is separate).
+- A save aborted because the file already exists is not counted.
+
+`AudiMate/js/zeploy-usage.js` is zeploy's helper, copied unchanged; the
+counting is in `js/main.js` (search for `zeployUsage`). The contract is
+`docs/plugin-usage.md` in the zeploy repository.
+
+### Installing with zeploy
+
+`zeploy.json` lets the zeploy admin app install AudiMate the way
+`install.bat` does, as `CEP\extensions\AudiMate`. In zeploy, add this repository
+folder (`proj_AudiMate`, not the `AudiMate/` panel folder) under **Add package**.
+
+---
+
 ## Updating
 
 ### As a user
@@ -91,11 +121,14 @@ You can also just check the [Releases page](https://github.com/explainervid-glit
 
 ### As a developer / maintainer
 
-The panel checks [`version.json`](version.json) in this repo on startup and compares it to the version baked into the code. To publish an update, bump the version in **three** places so they stay in sync:
+The panel checks [`version.json`](version.json) in this repo on startup and compares it to the version baked into the code. To publish an update, bump the version in **four** places so they stay in sync:
 
 1. **`AudiMate/js/main.js`** — `var CURRENT_VERSION = "x.y.z";`
 2. **`AudiMate/CSXS/manifest.xml`** — `<Extension Id="com.zeus.audimate.panel" Version="x.y.z" />`
 3. **`version.json`** (repo root) — `"version"`, plus a short `"notes"` line.
+4. **`zeploy.json`** (repo root) — `"version"`.
+
+The version zeploy's usage reporting sends is `CURRENT_VERSION`, so it needs no separate change.
 
 Then:
 
@@ -147,12 +180,14 @@ proj_AudiMate/
 ├── install.bat            # Installer launcher (run this)
 ├── operator.ps1           # Installer logic (self-elevating PowerShell)
 ├── version.json           # Update manifest checked by the panel
+├── zeploy.json            # How zeploy installs it
 ├── README.md
 └── AudiMate/              # The CEP panel itself
     ├── CSXS/manifest.xml  # Extension registration (host, version, size)
     ├── AudiMate.html      # Panel UI
     ├── css/style.css      # Theme + layout
     ├── js/main.js         # Panel logic (audio, waveform, WAV encode, I/O)
+    ├── js/zeploy-usage.js # zeploy's usage helper (unchanged copy)
     ├── jsx/AudiMate.jsx   # ExtendScript bridge (imports WAV into Animate)
     └── fonts/             # Bundled Inter font
 ```

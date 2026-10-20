@@ -1,5 +1,5 @@
 {
-  "version": "1.5.3",
+  "version": "1.6.0",
   "url": "https://github.com/explainervid-glitch/proj_AudiMate/releases",
-  "notes": "Bug fixes: prevent duplicate exports on double-click, graceful resample fallback, and apostrophe-safe file paths."
+  "notes": "Counts imports and saves for the team's zeploy dashboard (no file names); zeploy can install the panel."
 }

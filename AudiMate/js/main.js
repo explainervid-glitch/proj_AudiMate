@@ -12,9 +12,21 @@
     // Single source of truth for the running version. Bump this on each release
     // (and match it in CSXS/manifest.xml). The panel compares it against
     // version.json hosted in the GitHub repo and shows an "Update" pill if newer.
-    var CURRENT_VERSION = "1.5.3";
+    var CURRENT_VERSION = "1.6.0";
     var UPDATE_CHECK_URL = "https://raw.githubusercontent.com/explainervid-glitch/proj_AudiMate/main/version.json";
     var RELEASES_URL = "https://github.com/explainervid-glitch/proj_AudiMate/releases";
+
+    // ---------- Usage for zeploy ----------
+    // Counts "import" (a file loaded by the user, not the session restore),
+    // "save" (Save Audio Only) and "add to layer" (Save & Add To Layer), plus
+    // an error when one of those fails. Writes one line per use to
+    // %LOCALAPPDATA%\zeploy\usage on PCs with zeploy, nothing elsewhere; no
+    // file names. js/zeploy-usage.js is zeploy's helper, unchanged.
+    var zeployUsage = window.zeployUsageV1
+        ? window.zeployUsageV1("com.zeus.audimate", CURRENT_VERSION)
+        : { action: function () {}, error: function () {} };
+    // Set by the Import button and drag-and-drop, so only those count.
+    var importByUser = false;
 
     // This CEP host does not expose Node's require() (require === "undefined"),
     // but window.cep.fs IS available - use that for all file I/O instead.
@@ -234,6 +246,7 @@
             var result = window.cep.fs.showOpenDialog(false, false, "Select audio file",
                 state.fileDir || "", ["wav", "mp3", "ogg", "m4a", "aac"]);
             if (result && result.err === 0 && result.data && result.data.length > 0) {
+                importByUser = true;
                 loadAudioFile(result.data[0]);
             }
         } catch (err) {
@@ -291,6 +304,7 @@
         if (!files || files.length === 0) return;
 
         var file = files[0];
+        importByUser = true;
 
         if (file.path) {
             // Native path available - use cep.fs path-based loader (consistent with Import button)
@@ -355,6 +369,10 @@
     // header ourselves (wav/mp3/ogg/m4a/aac) — out of scope. Documented so this
     // isn't later mistaken for a bug.
     function onAudioDecoded(decoded, filePath, fallbackName) {
+        if (importByUser) {
+            importByUser = false;
+            zeployUsage.action("import");
+        }
         state.audioBuffer = decoded;
         state.sampleRate = decoded.sampleRate;
         state.duration = decoded.duration;
@@ -1474,12 +1492,14 @@
 
         isExporting = true;
         setStatus("Encoding " + regions.length + " file(s)...");
+        var usageStart = Date.now();
 
         function saveNext() {
             if (idx >= regions.length) {
                 var msg = "Saved " + outputPaths.length + " file(s) to " + state.fileDir;
                 setStatus(warning ? (warning + " " + msg) : msg, warning ? "" : "success");
                 isExporting = false;
+                zeployUsage.action("save", Date.now() - usageStart);
                 return;
             }
             var region = regions[idx++];
@@ -1487,6 +1507,7 @@
                 if (!buffer) {
                     setStatus("Cut failed: " + errMsg, "error");
                     isExporting = false;
+                    zeployUsage.error("save");
                     return;
                 }
                 if (warnMsg) warning = warnMsg;
@@ -1498,6 +1519,7 @@
                 } catch (err) {
                     setStatus("Cut failed: " + err.message, "error");
                     isExporting = false;
+                    zeployUsage.error("save");
                 }
             });
         }
@@ -1520,11 +1542,13 @@
 
         isExporting = true;
         setStatus("Encoding...");
+        var usageStart = Date.now();
 
         encodeRegionToBuffer(region, function (buffer, errMsg, warnMsg) {
             if (!buffer) {
                 setStatus("CutPort failed: " + errMsg, "error");
                 isExporting = false;
+                zeployUsage.error("add to layer");
                 return;
             }
             try {
@@ -1543,14 +1567,17 @@
                 csInterface.evalScript(jsxCall, function (result) {
                     if (result && result.indexOf("ERROR") === 0) {
                         setStatus("Saved file, but import failed: " + result, "error");
+                        zeployUsage.error("add to layer");
                     } else {
                         setStatus(prefix + "CutPort done: " + outPath + " -> " + result, "success");
+                        zeployUsage.action("add to layer", Date.now() - usageStart);
                     }
                     isExporting = false;
                 });
             } catch (err) {
                 setStatus("CutPort failed: " + err.message, "error");
                 isExporting = false;
+                zeployUsage.error("add to layer");
             }
         });
     });
