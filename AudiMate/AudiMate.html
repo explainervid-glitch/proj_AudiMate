@@ -76,31 +76,26 @@
         <span class="version">v1.0.0</span>
     </div> -->
 
-    <!-- Import button / drag & drop / file info -->
+    <!-- Row 1: import / file + meta -->
     <div class="row top-row">
         <div id="dropZone" class="drop-zone">
             <button id="importBtn" class="action-btn icon-btn" title="Import audio">
                 <svg><use href="#lc-upload"/></svg>Import
             </button>
-            <span id="dropZoneText">Drop audio here or click Import</span>
+            <span id="dropZoneText">Drop audio or Import</span>
         </div>
 
-        <div class="version">
-            <div class="field version-field">
-                <span id="versionLabel" class="version">v1.5.0</span>
-                <a id="updateNotice" class="update-notice" href="#" style="display:none" title="Download the latest version"></a>
-            </div>
+        <div class="version version-field">
+            <span id="versionLabel" class="version">v1.5.0</span>
+            <a id="updateNotice" class="update-notice" href="#" style="display:none" title="Download the latest version"></a>
         </div>
 
+        <!-- Cut Mode (hidden: locked to Mono) -->
         <div class="field mode-toggle-field">
             <label class="field-label">Cut Mode</label>
             <div class="toggle-group">
-                <button id="modeStraightBtn" class="toggle-btn active" data-mode="straight">
-                    Mono
-                </button>
-                <button id="modeMultipleBtn" class="toggle-btn" data-mode="multiple">
-                    Multiple
-                </button>
+                <button id="modeStraightBtn" class="toggle-btn active" data-mode="straight">Mono</button>
+                <button id="modeMultipleBtn" class="toggle-btn" data-mode="multiple">Multiple</button>
             </div>
         </div>
 
@@ -133,7 +128,7 @@
         </div>
     </div>
 
-    <!-- Waveform + Ruler (horizontally scrollable when zoomed) -->
+    <!-- Row 2: waveform + ruler (grows to fill height; scrolls horizontally when zoomed) -->
     <div class="timeline-scroll">
         <div class="waveform-container">
             <canvas id="waveformCanvas"></canvas>
@@ -145,33 +140,46 @@
         </div>
     </div>
 
-    <!-- Transport + zoom -->
+    <!-- Row 3: transport + zoom + name + save, one wrapping row -->
     <div class="row controls-row">
-
-        <button id="playBtn" class="ctrl-btn icon-btn" disabled title="Play">
+        <button id="playBtn" class="ctrl-btn icon-btn ghost" disabled title="Play / pause (Space)">
             <svg><use href="#lc-play"/></svg>
         </button>
-        <button id="stopBtn" class="ctrl-btn icon-btn" disabled title="Stop">
+        <button id="stopBtn" class="ctrl-btn icon-btn ghost" disabled title="Stop">
             <svg><use href="#lc-square"/></svg>
         </button>
-        <button id="playRegionBtn" class="ctrl-btn icon-btn active" disabled title="Play Inside Region">
-            <svg><use href="#lc-repeat-1"/></svg>Region
+        <button id="playRegionBtn" class="ctrl-btn icon-btn ghost active" disabled title="Play inside region">
+            <svg><use href="#lc-repeat-1"/></svg>
         </button>
+
+        <span class="ctrl-div"></span>
 
         <div class="zoom-controls">
             <span id="zoomLabel" class="zoom-label">100%</span>
-            <button id="zoomToPlayheadBtn" class="ctrl-btn small icon-btn" title="Zoom to playhead">
+            <button id="zoomToPlayheadBtn" class="ctrl-btn small icon-btn ghost" title="Zoom to playhead (Ctrl+Scroll to zoom, Shift+Scroll to pan)">
                 <svg><use href="#lc-locate"/></svg>
             </button>
-            <button id="zoomResetBtn" class="ctrl-btn small icon-btn" title="Reset zoom">
+            <button id="zoomResetBtn" class="ctrl-btn small icon-btn ghost" title="Reset zoom">
                 <svg><use href="#lc-maximize-2"/></svg>
             </button>
         </div>
 
+        <span class="ctrl-div"></span>
+
         <div class="field2 naming-field">
-            <label class="field-label" for="namingInput">Rename</label>
-            <input type="text" id="namingInput" placeholder="e.g sound_1" value="">
+            <label class="field-label" for="namingInput">Name</label>
+            <input type="text" id="namingInput" placeholder="sound_1" value="">
         </div>
+
+        <button id="addRegionBtn" class="action-btn icon-btn" disabled title="Add cut region">
+            <svg><use href="#lc-scissors"/></svg>Add Region
+        </button>
+        <button id="cutBtn" class="action-btn icon-btn" disabled title="Save audio file only">
+            <svg><use href="#lc-save"/></svg>Save
+        </button>
+        <button id="cutPortBtn" class="action-btn icon-btn primary" disabled title="Save and add to the active layer">
+            <svg><use href="#lc-send"/></svg>Save + Layer
+        </button>
 
         <div class="regions-info" id="regionsInfo"></div>
 
@@ -179,27 +187,11 @@
             <span id="currentTimeLabel">0:00.000</span> / <span id="durationLabel">0:00.000</span>
         </div>
     </div>
-    <div class="row btn2-row">
-        <label class="label" for="namingInput">Ctrl+Scroll: Zoom | Shift + Scroll: Navigate</label>
-    </div>
 
-    <!-- Action buttons -->
-    <div class="row btn-row">
-        <button id="addRegionBtn" class="action-btn icon-btn" disabled>
-            <svg><use href="#lc-scissors"/></svg>Add Cut Region
-        </button>
-        <button id="cutBtn" class="action-btn icon-btn" disabled>
-            <svg><use href="#lc-save"/></svg>Save Audio Only
-        </button>
-        <button id="cutPortBtn" class="action-btn icon-btn primary" disabled>
-            <svg><use href="#lc-send"/></svg>Save & Add To Layer
-        </button>
-    </div>
-
-    <!-- Multiple cut list (only visible in Multiple mode) -->
+    <!-- Multiple cut list (hidden: Mono-only) -->
     <div id="multiList" class="multi-list"></div>
 
-    <!-- Status -->
+    <!-- Status toast -->
     <div id="status" class="status"></div>
 
 </div>

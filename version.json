@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
+  "version": "1.7.0",
   "url": "https://github.com/explainervid-glitch/proj_AudiMate/releases",
-  "notes": "Counts imports and saves for the team's zeploy dashboard (no file names); zeploy can install the panel."
+  "notes": "Compact UI: flat 2-row layout with a larger waveform, ghost transport buttons, inline rename + save, and a floating status toast."
 }

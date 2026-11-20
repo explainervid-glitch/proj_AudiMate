@@ -12,7 +12,7 @@
     // Single source of truth for the running version. Bump this on each release
     // (and match it in CSXS/manifest.xml). The panel compares it against
     // version.json hosted in the GitHub repo and shows an "Update" pill if newer.
-    var CURRENT_VERSION = "1.6.0";
+    var CURRENT_VERSION = "1.7.0";
     var UPDATE_CHECK_URL = "https://raw.githubusercontent.com/explainervid-glitch/proj_AudiMate/main/version.json";
     var RELEASES_URL = "https://github.com/explainervid-glitch/proj_AudiMate/releases";
 
